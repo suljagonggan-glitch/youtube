@@ -1,17 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { generateScriptWithAI } from './services/aiService';
+import { analyzeSuggestTopics, generateScriptWithAI } from './services/aiService';
 import { AppStep, HistoryItem, AIProvider, AIConfig } from './types';
 import { Header } from './components/Header';
 import { InputForm } from './components/InputForm';
 import { ScriptDisplay } from './components/ScriptDisplay';
 import { HistoryList } from './components/HistoryList';
 import { AIConfigForm } from './components/AIConfigForm';
+import { TopicSelection } from './components/TopicSelection';
 import { Loader2, AlertCircle, Sparkles } from 'lucide-react';
 
 const App: React.FC = () => {
   const [step, setStep] = useState<AppStep>(AppStep.INPUT);
   const [originalTranscript, setOriginalTranscript] = useState('');
-  const [newTopic, setNewTopic] = useState('');
+  const [suggestedTopics, setSuggestedTopics] = useState<string[]>([]);
+  const [selectedTopic, setSelectedTopic] = useState('');
   const [finalScript, setFinalScript] = useState<string>('');
   const [analysisSummary, setAnalysisSummary] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
@@ -44,8 +46,8 @@ const App: React.FC = () => {
     localStorage.setItem('aiConfig', JSON.stringify(newConfig));
   };
 
-  // Generate Script (Combined: Analyze + Generate)
-  const handleGenerate = async () => {
+  // Step 1: Analyze and suggest topics
+  const handleAnalyze = async () => {
     if (!aiConfig.apiKey) {
       setError('먼저 AI API 키를 설정해주세요.');
       return;
@@ -56,26 +58,38 @@ const App: React.FC = () => {
       return;
     }
 
-    if (!newTopic.trim()) {
-      setError('새로운 주제를 입력해주세요.');
-      return;
-    }
+    setStep(AppStep.ANALYZING);
+    setError(null);
 
+    try {
+      const result = await analyzeSuggestTopics(originalTranscript, aiConfig);
+      setSuggestedTopics(result.suggested_topics);
+      setAnalysisSummary(result.analysis_summary);
+      setStep(AppStep.TOPIC_SELECTION);
+    } catch (err) {
+      console.error(err);
+      setError('대본 분석에 실패했습니다. API 키와 네트워크 연결을 확인해주세요.');
+      setStep(AppStep.INPUT);
+    }
+  };
+
+  // Step 2: Generate script with selected topic
+  const handleTopicSelect = async (topic: string) => {
+    setSelectedTopic(topic);
     setStep(AppStep.GENERATING);
     setError(null);
 
     try {
-      const result = await generateScriptWithAI(originalTranscript, newTopic, aiConfig);
+      const result = await generateScriptWithAI(originalTranscript, topic, aiConfig);
       setFinalScript(result.final_script);
-      setAnalysisSummary(result.analysis_summary);
       
       // Auto-save to history
       const newHistoryItem: HistoryItem = {
         id: Date.now().toString(),
         date: new Date().toLocaleString('ko-KR'),
-        topic: newTopic,
+        topic: topic,
         script: result.final_script,
-        analysis: result.analysis_summary
+        analysis: analysisSummary
       };
       
       const updatedHistory = [newHistoryItem, ...history];
@@ -85,14 +99,14 @@ const App: React.FC = () => {
     } catch (err) {
       console.error(err);
       setError('대본 생성에 실패했습니다. API 키와 네트워크 연결을 확인해주세요.');
-      setStep(AppStep.INPUT);
+      setStep(AppStep.TOPIC_SELECTION);
     }
   };
 
   const handleSelectHistory = (item: HistoryItem) => {
     setFinalScript(item.script);
     setAnalysisSummary(item.analysis);
-    setNewTopic(item.topic);
+    setSelectedTopic(item.topic);
     setStep(AppStep.RESULT);
   };
 
@@ -104,7 +118,8 @@ const App: React.FC = () => {
   const handleReset = () => {
     setStep(AppStep.INPUT);
     setOriginalTranscript('');
-    setNewTopic('');
+    setSuggestedTopics([]);
+    setSelectedTopic('');
     setFinalScript('');
     setAnalysisSummary('');
     setError(null);
@@ -124,7 +139,7 @@ const App: React.FC = () => {
         )}
 
         {/* INPUT STEP */}
-        {step === AppStep.INPUT || step === AppStep.GENERATING ? (
+        {step === AppStep.INPUT || step === AppStep.ANALYZING ? (
           <div className="max-w-3xl mx-auto flex flex-col gap-6">
             {/* AI Config */}
             <AIConfigForm 
@@ -136,36 +151,47 @@ const App: React.FC = () => {
             <div className="bg-secondary/50 p-8 rounded-3xl border border-gray-800 shadow-2xl backdrop-blur-sm">
               <div className="flex items-center gap-3 mb-6">
                 <span className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/20 text-primary font-bold text-sm">1</span>
-                <h2 className="text-xl font-bold text-white">대본 생성하기</h2>
+                <h2 className="text-xl font-bold text-white">원본 대본 입력</h2>
               </div>
               
-              <InputForm
-                originalTranscript={originalTranscript}
-                setOriginalTranscript={setOriginalTranscript}
-                newTopic={newTopic}
-                setNewTopic={setNewTopic}
-                disabled={step === AppStep.GENERATING}
-              />
+              <div className="space-y-5">
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-sm font-bold text-gray-300">
+                    떡상한 영상 대본 (분석용)
+                  </label>
+                  <textarea
+                    value={originalTranscript}
+                    onChange={(e) => setOriginalTranscript(e.target.value)}
+                    placeholder="여기에 유튜브 자막/스크립트를 전체 붙여넣기 하세요..."
+                    className="w-full h-64 bg-black/40 border border-gray-700 rounded-xl p-4 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-transparent transition-all placeholder-gray-600 resize-none leading-relaxed"
+                    disabled={step === AppStep.ANALYZING}
+                  />
+                  <div className="flex justify-between text-xs text-gray-500">
+                    <span>대본이 길수록 분석이 정확해집니다.</span>
+                    <span>{originalTranscript.length} 글자</span>
+                  </div>
+                </div>
+              </div>
               
               <div className="mt-8">
                 <button
-                  onClick={handleGenerate}
-                  disabled={step === AppStep.GENERATING}
+                  onClick={handleAnalyze}
+                  disabled={step === AppStep.ANALYZING}
                   className={`w-full py-5 px-6 rounded-xl font-bold text-lg text-white shadow-lg transition-all duration-300 flex items-center justify-center gap-3
-                    ${step === AppStep.GENERATING
+                    ${step === AppStep.ANALYZING
                       ? 'bg-gray-800 cursor-not-allowed opacity-80' 
                       : 'bg-gradient-to-r from-primary to-rose-600 hover:scale-[1.02] hover:shadow-primary/30'
                     }`}
                 >
-                  {step === AppStep.GENERATING ? (
+                  {step === AppStep.ANALYZING ? (
                     <>
                       <Loader2 className="w-6 h-6 animate-spin" />
-                      대본 생성 중...
+                      대본 분석 및 주제 추천 중...
                     </>
                   ) : (
                     <>
                       <Sparkles className="w-5 h-5" />
-                      대본 생성하기
+                      주제 추천받기
                     </>
                   )}
                 </button>
@@ -175,8 +201,8 @@ const App: React.FC = () => {
             {/* Info Box */}
             <div className="p-6 rounded-2xl border border-gray-800 bg-gray-900/30 text-center">
                <p className="text-gray-400 text-sm">
-                 기존 대본의 구조를 분석하여 새로운 주제로 바이럴 대본을 생성합니다. <br/>
-                 생성된 대본은 자동으로 저장됩니다.
+                 기존 대본의 구조를 분석하여 3~5개의 떡상 가능 주제를 추천합니다. <br/>
+                 원하는 주제를 선택하면 해당 주제로 대본을 생성합니다.
                </p>
             </div>
 
@@ -188,6 +214,16 @@ const App: React.FC = () => {
             />
           </div>
         ) : null}
+
+        {/* TOPIC SELECTION STEP */}
+        {(step === AppStep.TOPIC_SELECTION || step === AppStep.GENERATING) && suggestedTopics.length > 0 && (
+          <TopicSelection
+            topics={suggestedTopics}
+            analysisSummary={analysisSummary}
+            onSelectTopic={handleTopicSelect}
+            isGenerating={step === AppStep.GENERATING}
+          />
+        )}
 
         {/* RESULT STEP */}
         {step === AppStep.RESULT && (

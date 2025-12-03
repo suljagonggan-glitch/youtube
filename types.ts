@@ -10,6 +10,11 @@ export interface ScriptResult {
   analysis_summary: string;
 }
 
+export interface TopicSuggestion {
+  suggested_topics: string[];
+  analysis_summary: string;
+}
+
 export interface HistoryItem {
   id: string;
   date: string;
@@ -20,6 +25,8 @@ export interface HistoryItem {
 
 export enum AppStep {
   INPUT = 'input',
+  ANALYZING = 'analyzing',
+  TOPIC_SELECTION = 'topic_selection',
   GENERATING = 'generating',
   RESULT = 'result'
 }
