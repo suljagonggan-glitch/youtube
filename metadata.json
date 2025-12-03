@@ -1,0 +1,5 @@
+{
+  "name": "ViralClone AI",
+  "description": "Analyze successful YouTube transcripts and generate new scripts using their viral structure.",
+  "requestFramePermissions": []
+}
