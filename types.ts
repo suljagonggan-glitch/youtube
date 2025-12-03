@@ -1,3 +1,5 @@
+export type AIProvider = 'gemini' | 'openai' | 'claude';
+
 export interface AnalysisResult {
   analysis_summary: string;
   structure_points: string[];
@@ -20,4 +22,9 @@ export enum AppStep {
   INPUT = 'input',
   GENERATING = 'generating',
   RESULT = 'result'
+}
+
+export interface AIConfig {
+  provider: AIProvider;
+  apiKey: string;
 }

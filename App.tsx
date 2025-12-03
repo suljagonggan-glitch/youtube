@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { generateScriptWithAnalysis } from './services/geminiService';
-import { AppStep, HistoryItem } from './types';
+import { generateScriptWithAI } from './services/aiService';
+import { AppStep, HistoryItem, AIProvider, AIConfig } from './types';
 import { Header } from './components/Header';
 import { InputForm } from './components/InputForm';
 import { ScriptDisplay } from './components/ScriptDisplay';
 import { HistoryList } from './components/HistoryList';
+import { AIConfigForm } from './components/AIConfigForm';
 import { Loader2, AlertCircle, Sparkles } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -15,6 +16,12 @@ const App: React.FC = () => {
   const [analysisSummary, setAnalysisSummary] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  
+  // AI Configuration
+  const [aiConfig, setAiConfig] = useState<AIConfig>(() => {
+    const saved = localStorage.getItem('aiConfig');
+    return saved ? JSON.parse(saved) : { provider: 'gemini' as AIProvider, apiKey: '' };
+  });
 
   // Load history from localStorage
   useEffect(() => {
@@ -30,8 +37,20 @@ const App: React.FC = () => {
     localStorage.setItem('scriptHistory', JSON.stringify(newHistory));
   };
 
+  // Save AI config
+  const handleConfigSave = (provider: AIProvider, apiKey: string) => {
+    const newConfig = { provider, apiKey };
+    setAiConfig(newConfig);
+    localStorage.setItem('aiConfig', JSON.stringify(newConfig));
+  };
+
   // Generate Script (Combined: Analyze + Generate)
   const handleGenerate = async () => {
+    if (!aiConfig.apiKey) {
+      setError('먼저 AI API 키를 설정해주세요.');
+      return;
+    }
+
     if (!originalTranscript.trim()) {
       setError('참고할 기존 대본을 입력해주세요.');
       return;
@@ -46,7 +65,7 @@ const App: React.FC = () => {
     setError(null);
 
     try {
-      const result = await generateScriptWithAnalysis(originalTranscript, newTopic);
+      const result = await generateScriptWithAI(originalTranscript, newTopic, aiConfig);
       setFinalScript(result.final_script);
       setAnalysisSummary(result.analysis_summary);
       
@@ -65,7 +84,7 @@ const App: React.FC = () => {
       setStep(AppStep.RESULT);
     } catch (err) {
       console.error(err);
-      setError('대본 생성에 실패했습니다. 다시 시도해주세요.');
+      setError('대본 생성에 실패했습니다. API 키와 네트워크 연결을 확인해주세요.');
       setStep(AppStep.INPUT);
     }
   };
@@ -107,6 +126,13 @@ const App: React.FC = () => {
         {/* INPUT STEP */}
         {step === AppStep.INPUT || step === AppStep.GENERATING ? (
           <div className="max-w-3xl mx-auto flex flex-col gap-6">
+            {/* AI Config */}
+            <AIConfigForm 
+              onConfigSave={handleConfigSave}
+              currentProvider={aiConfig.provider}
+              hasApiKey={!!aiConfig.apiKey}
+            />
+
             <div className="bg-secondary/50 p-8 rounded-3xl border border-gray-800 shadow-2xl backdrop-blur-sm">
               <div className="flex items-center gap-3 mb-6">
                 <span className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/20 text-primary font-bold text-sm">1</span>
