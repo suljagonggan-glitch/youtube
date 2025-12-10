@@ -1,5 +1,8 @@
 export type AIProvider = 'gemini' | 'openai' | 'claude';
 
+export type ChannelType = '썰채널' | '야담' | '건강' | '부동산';
+export type VideoLength = '쇼츠' | '10분 이내' | '30분';
+
 export interface AnalysisResult {
   analysis_summary: string;
   structure_points: string[];
@@ -13,6 +16,11 @@ export interface ScriptResult {
 export interface TopicSuggestion {
   suggested_topics: string[];
   analysis_summary: string;
+}
+
+export interface VideoConfig {
+  channelType: ChannelType;
+  videoLength: VideoLength;
 }
 
 export interface HistoryItem {

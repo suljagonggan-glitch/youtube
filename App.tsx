@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { analyzeSuggestTopics, generateScriptWithAI } from './services/aiService';
-import { AppStep, HistoryItem, AIProvider, AIConfig } from './types';
+import { AppStep, HistoryItem, AIProvider, AIConfig, ChannelType, VideoLength } from './types';
 import { Header } from './components/Header';
 import { InputForm } from './components/InputForm';
 import { ScriptDisplay } from './components/ScriptDisplay';
 import { HistoryList } from './components/HistoryList';
 import { AIConfigForm } from './components/AIConfigForm';
 import { TopicSelection } from './components/TopicSelection';
+import { VideoConfigSelector } from './components/VideoConfigSelector';
 import { Loader2, AlertCircle, Sparkles } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -18,6 +19,10 @@ const App: React.FC = () => {
   const [analysisSummary, setAnalysisSummary] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  
+  // Video Configuration
+  const [channelType, setChannelType] = useState<ChannelType>('썰채널');
+  const [videoLength, setVideoLength] = useState<VideoLength>('10분 이내');
   
   // AI Configuration
   const [aiConfig, setAiConfig] = useState<AIConfig>(() => {
@@ -62,7 +67,7 @@ const App: React.FC = () => {
     setError(null);
 
     try {
-      const result = await analyzeSuggestTopics(originalTranscript, aiConfig);
+      const result = await analyzeSuggestTopics(originalTranscript, channelType, aiConfig);
       setSuggestedTopics(result.suggested_topics);
       setAnalysisSummary(result.analysis_summary);
       setStep(AppStep.TOPIC_SELECTION);
@@ -80,14 +85,14 @@ const App: React.FC = () => {
     setError(null);
 
     try {
-      const result = await generateScriptWithAI(originalTranscript, topic, aiConfig);
+      const result = await generateScriptWithAI(originalTranscript, topic, channelType, videoLength, aiConfig);
       setFinalScript(result.final_script);
       
       // Auto-save to history
       const newHistoryItem: HistoryItem = {
         id: Date.now().toString(),
         date: new Date().toLocaleString('ko-KR'),
-        topic: topic,
+        topic: `[${channelType}/${videoLength}] ${topic}`,
         script: result.final_script,
         analysis: analysisSummary
       };
@@ -151,11 +156,21 @@ const App: React.FC = () => {
             <div className="bg-secondary/50 p-8 rounded-3xl border border-gray-800 shadow-2xl backdrop-blur-sm">
               <div className="flex items-center gap-3 mb-6">
                 <span className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/20 text-primary font-bold text-sm">1</span>
-                <h2 className="text-xl font-bold text-white">원본 대본 입력</h2>
+                <h2 className="text-xl font-bold text-white">영상 구성 및 대본 입력</h2>
               </div>
               
-              <div className="space-y-5">
-                <div className="space-y-2">
+              <div className="space-y-6">
+                {/* Video Configuration */}
+                <VideoConfigSelector
+                  channelType={channelType}
+                  videoLength={videoLength}
+                  onChannelTypeChange={setChannelType}
+                  onVideoLengthChange={setVideoLength}
+                  disabled={step === AppStep.ANALYZING}
+                />
+
+                {/* Original Transcript Input */}
+                <div className="space-y-2 pt-4 border-t border-gray-800">
                   <label className="flex items-center gap-2 text-sm font-bold text-gray-300">
                     떡상한 영상 대본 (분석용)
                   </label>
@@ -201,8 +216,8 @@ const App: React.FC = () => {
             {/* Info Box */}
             <div className="p-6 rounded-2xl border border-gray-800 bg-gray-900/30 text-center">
                <p className="text-gray-400 text-sm">
-                 기존 대본의 구조를 분석하여 3~5개의 떡상 가능 주제를 추천합니다. <br/>
-                 원하는 주제를 선택하면 해당 주제로 대본을 생성합니다.
+                 <strong className="text-primary">{channelType}</strong> 채널의 <strong className="text-primary">{videoLength}</strong> 영상에 최적화된 대본을 생성합니다. <br/>
+                 기존 대본의 구조를 분석하여 헐리우드 기법을 적용한 3~5개의 주제를 추천합니다.
                </p>
             </div>
 
@@ -228,6 +243,17 @@ const App: React.FC = () => {
         {/* RESULT STEP */}
         {step === AppStep.RESULT && (
           <div className="max-w-4xl mx-auto">
+            {/* Video Config Display */}
+            <div className="mb-6 p-4 bg-primary/10 border border-primary/30 rounded-xl flex items-center justify-center gap-4">
+              <span className="text-sm font-bold text-white">
+                📺 {channelType}
+              </span>
+              <span className="text-gray-500">|</span>
+              <span className="text-sm font-bold text-white">
+                ⏱️ {videoLength}
+              </span>
+            </div>
+
             {analysisSummary && (
               <div className="mb-6 p-6 bg-secondary/30 border border-gray-800 rounded-2xl">
                 <h3 className="text-sm font-bold text-primary mb-2">📊 분석 요약</h3>

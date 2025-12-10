@@ -1,13 +1,24 @@
-import { ScriptResult, AIConfig, TopicSuggestion } from '../types';
+import { ScriptResult, AIConfig, TopicSuggestion, ChannelType, VideoLength } from '../types';
 
 // Step 1: Analyze and suggest topics
 export const analyzeSuggestTopics = async (
   originalTranscript: string,
+  channelType: ChannelType,
   config: AIConfig
 ): Promise<TopicSuggestion> => {
+  const channelContext = {
+    '썰채널': '스토리텔링 중심의 흥미진진한 이야기로, 시청자의 호기심과 몰입을 극대화',
+    '야담': '실화 기반의 충격적이거나 감동적인 이야기로, 진정성과 공감을 이끌어냄',
+    '건강': '건강 정보와 의학 지식을 명확하고 신뢰할 수 있게 전달하며, 시청자의 건강 개선에 도움',
+    '부동산': '부동산 투자와 시장 분석을 전문적이고 실용적으로 제공하며, 재테크 인사이트 제공'
+  };
+
   const prompt = `
 # Role
 당신은 유튜브 알고리즘과 헐리우드 시나리오 작법을 마스터한 **'콘텐츠 아키텍트(Content Architect)'**입니다.
+
+# Channel Type
+**${channelType}** - ${channelContext[channelType]}
 
 # Input Data
 사용자 원문:
@@ -26,8 +37,8 @@ ${originalTranscript}
    - 황당/유머 → 행오버 스타일 (미스터리 코미디)
 
 ## STEP 2. 주제 리브랜딩
-원문의 구조와 감정을 활용하여 **3~5개의 클릭을 부르는 새로운 주제**를 제안하십시오.
-각 주제는 헐리우드 기법을 적용할 수 있어야 하며, 조회수 폭발 가능성이 높아야 합니다.
+원문의 구조와 감정을 활용하여 **${channelType}** 채널에 최적화된 **3~5개의 클릭을 부르는 새로운 주제**를 제안하십시오.
+각 주제는 헐리우드 기법을 적용할 수 있어야 하며, ${channelType} 특성에 맞고 조회수 폭발 가능성이 높아야 합니다.
 
 # Output Format (JSON)
 {
@@ -52,11 +63,30 @@ ${originalTranscript}
 export const generateScriptWithAI = async (
   originalTranscript: string,
   newTopic: string,
+  channelType: ChannelType,
+  videoLength: VideoLength,
   config: AIConfig
 ): Promise<ScriptResult> => {
+  const channelContext = {
+    '썰채널': '스토리텔링 중심의 흥미진진한 이야기',
+    '야담': '실화 기반의 충격적이거나 감동적인 이야기',
+    '건강': '건강 정보와 의학 지식 전달',
+    '부동산': '부동산 투자와 시장 분석'
+  };
+
+  const lengthGuide = {
+    '쇼츠': '60초 이내로 핵심만 빠르게 전달. 첫 3초가 생명. 자막 친화적. 빠른 전개.',
+    '10분 이내': '5-10분 분량. 적당한 기승전결. 중간 광고 고려. 리텐션 유지 장치 필수.',
+    '30분': '20-30분 심층 콘텐츠. 챕터 구성. 디테일한 설명. 여러 서브 스토리 가능.'
+  };
+
   const prompt = `
 # Role
 당신은 유튜브 알고리즘과 헐리우드 시나리오 작법을 마스터한 **'콘텐츠 아키텍트(Content Architect)'**입니다.
+
+# Video Configuration
+- **채널 타입:** ${channelType} (${channelContext[channelType]})
+- **영상 길이:** ${videoLength} (${lengthGuide[videoLength]})
 
 # Input Data
 사용자 원문:
@@ -86,13 +116,16 @@ ${newTopic}
 선정된 기법의 구조에 맞춰 새로운 주제로 대본 작성.
 
 # Output Requirements
+- **${videoLength}** 분량에 최적화된 대본 작성
+- **${channelType}** 채널 특성에 맞는 톤앤매너 적용
 - 선택된 헐리우드 기법의 구조를 명확히 적용할 것
 - 각 파트([훅], [전개], [절정], [결말] 등)를 구분하여 표시
-- 썸네일/제목 추천 3개 포함
+- 썸네일/제목 추천 3개 포함 (${channelType} 특성 반영)
 - BGM, 효과음, 편집 가이드를 괄호 안에 명시
 - 지루한 부분은 과감히 삭제, 감정선은 극대화
 - 첫 3초 훅은 충격적이거나 궁금증을 유발해야 함
 - 구어체, 자연스러운 말투 사용
+- ${videoLength === '쇼츠' ? '60초 이내로 간결하게' : videoLength === '10분 이내' ? '5-10분 적당한 분량' : '20-30분 심층 분석'}
 
 # YouTube 커뮤니티 가이드 준수 (필수)
 대본 작성 시 다음 사항을 철저히 준수하시오:
