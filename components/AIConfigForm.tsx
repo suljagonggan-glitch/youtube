@@ -88,10 +88,10 @@ export const AIConfigForm: React.FC<AIConfigFormProps> = ({
 
           <div>
             <label className="block text-sm font-bold text-gray-300 mb-2">
-              API 키
+              API 키 입력
             </label>
             <input
-              type="password"
+              type="text"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
               placeholder={`${providerInfo[provider].name} API 키를 입력하세요`}
@@ -104,10 +104,10 @@ export const AIConfigForm: React.FC<AIConfigFormProps> = ({
                 rel="noopener noreferrer"
                 className="text-xs text-primary hover:underline"
               >
-                API 키 발급받기 →
+                {providerInfo[provider].name} API 키 발급받기 →
               </a>
               <span className="text-xs text-gray-500">
-                모델: {providerInfo[provider].model}
+                {providerInfo[provider].model}
               </span>
             </div>
           </div>
